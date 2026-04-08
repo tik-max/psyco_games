@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Speed Perception Test</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #e74c3c;
+            --bg: #ecf0f1;
+            --panel: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            margin: 0;
+            height: 100vh;
+        }
+
+        /* Left Panel - History */
+        #history-panel {
+            width: 280px;
+            background-color: var(--panel);
+            border-right: 2px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        #history-list {
+            list-style: none;
+            padding: 0;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .history-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 0.9rem;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Main Game Area */
+        #main-stage {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        #game-container {
+            width: 900px;
+            height: 250px;
+            background-color: #fff;
+            border: 4px solid var(--primary);
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        /* The Loco */
+        #loco {
+            width: 60px;
+            height: 40px;
+            background: #34495e;
+            position: absolute;
+            bottom: 30px;
+            left: -70px;
+            border-radius: 4px 15px 4px 4px;
+            z-index: 1;
+            transition: transform 0.1s;
+        }
+        #loco::after { /* Chimney */
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 40px;
+            width: 10px;
+            height: 15px;
+            background: #222;
+        }
+
+        /* The Tunnel */
+        #tunnel {
+            width: 350px;
+            height: 100px;
+            background: #7f8c8d;
+            background-image: repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(0,0,0,0.1) 40px, rgba(0,0,0,0.1) 80px);
+            position: absolute;
+            bottom: 20px;
+            left: 400px;
+            z-index: 10;
+            border: 3px solid #333;
+            border-bottom: none;
+        }
+
+        /* Feedback UI */
+        #display-msg {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            height: 40px;
+            color: var(--primary);
+        }
+
+        .controls-hint {
+            margin-top: 30px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        kbd {
+            background: #333;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .reason-box {
+            margin-top: 15px;
+            font-style: italic;
+            color: #555;
+            max-width: 600px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="history-panel">
+        <h2>Records</h2>
+        <div id="history-list">
+            <div class="history-item" style="color: #999;">No attempts yet...</div>
+        </div>
+    </div>
+
+    <div id="main-stage">
+        <div id="display-msg">READY: Press 'H' to Start</div>
+        
+        <div id="game-container">
+            <div id="loco"></div>
+            <div id="tunnel"></div>
+        </div>
+
+        <div class="reason-box" id="feedback-reason">
+            Watch the speed carefully. The test measures your ability to predict motion without visual cues.
+        </div>
+
+        <div class="controls-hint">
+            <kbd>H</kbd> Start Loco &nbsp; | &nbsp; <kbd>L</kbd> Stop at Tunnel End
+        </div>
+    </div>
+
+    <script>
+        const loco = document.getElementById('loco');
+        const msg = document.getElementById('display-msg');
+        const reason = document.getElementById('feedback-reason');
+        const historyList = document.getElementById('history-list');
+
+        let posX = -70;
+        let speed = 0;
+        let isMoving = false;
+        let anim;
+        let history = [];
+
+        const tunnelStart = 400;
+        const tunnelEnd = 750; // tunnelStart + 350
+        const locoWidth = 60;
+
+        function update() {
+            if (!isMoving) return;
+            posX += speed;
+            loco.style.left = posX + 'px';
+
+            if (posX > 950) {
+                recordAttempt("Failed", 100, "Missed Exit", "The Loco left the screen. You must stop it before it disappears!");
+                resetGame();
+            } else {
+                anim = requestAnimationFrame(update);
+            }
+        }
+
+        function start() {
+            if (isMoving) return;
+            posX = -70;
+            speed = Math.random() * 5 + 3; // Random speed 3-8
+            isMoving = true;
+            msg.innerText = "OBSERVE SPEED...";
+            msg.style.color = "#2980b9";
+            reason.innerText = "The loco is entering the tunnel. Estimate the time to exit!";
+            update();
+        }
+
+        function stop() {
+            if (!isMoving) return;
+            isMoving = false;
+            cancelAnimationFrame(anim);
+
+            const locoFront = posX + locoWidth;
+            const diff = locoFront - tunnelEnd;
+            const errorPercent = Math.abs((diff / 350) * 100).toFixed(1);
+            
+            let evaluation = "";
+            let explanation = "";
+
+            if (locoFront < tunnelStart) {
+                evaluation = "Very Early";
+                explanation = "You stopped before the tunnel! Observe the speed longer next time.";
+            } else if (locoFront < tunnelEnd - 20) {
+                evaluation = "Early";
+                explanation = `Stopped ${Math.abs(diff).toFixed(0)}px too soon. You likely underestimated the speed.`;
+            } else if (locoFront > tunnelEnd + 20) {
+                evaluation = "Late";
+                explanation = `Stopped ${diff.toFixed(0)}px too far. This is an 'Unsuitable' result in real tests. Reaction was slow.`;
+            } else {
+                evaluation = "Perfect";
+                explanation = "Excellent timing! Your speed perception is highly accurate.";
+            }
+
+            msg.innerText = `${evaluation} (${errorPercent}% Error)`;
+            msg.style.color = errorPercent < 5 ? "#27ae60" : "#e67e22";
+            reason.innerText = explanation;
+
+            recordAttempt(evaluation, errorPercent, `Err: ${diff.toFixed(0)}px`, explanation);
+        }
+
+        function recordAttempt(eval, err, raw, fullReason) {
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            history.unshift({ time, eval, err });
+            if (history.length > 10) history.pop();
+
+            historyList.innerHTML = history.map(item => `
+                <div class="history-item">
+                    <strong>${item.time}</strong>: ${item.eval} <br>
+                    <span style="color: ${item.err < 5 ? 'green' : 'red'}">Error: ${item.err}% (${item.raw || ''})</span>
+                </div>
+            `).join('');
+        }
+
+        function resetGame() {
+            isMoving = false;
+            cancelAnimationFrame(anim);
+            msg.innerText = "RESET: Press 'H' to try again";
+            msg.style.color = "#c0392b";
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'h') start();
+            if (e.key.toLowerCase() === 'l') stop();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <title>4-Dot Aptitude Test: 5-Round Challenge</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        #app { background: white; width: 950px; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+        
+        /* Screens */
+        .screen { display: none; }
+        .active-screen { display: block; }
+
+        /* UI Elements */
+        .stats-bar { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 1.2em; font-weight: bold; background: #34495e; color: white; padding: 10px 20px; border-radius: 8px; }
+        .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 15px; background: #fff; padding: 20px; border: 2px solid #ddd; border-radius: 10px; }
+        
+        /* Dots & Clusters */
+        .cluster { width: 110px; height: 110px; border: 2px solid transparent; border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .cluster.active { border-color: #3498db; background: #ebf5fb; transform: scale(1.05); z-index: 5; }
+        .dot-box { position: relative; width: 60px; height: 60px; }
+        .dot { position: absolute; width: 8px; height: 8px; background: #2c3e50; border-radius: 50%; }
+        .marked::after { content: ''; position: absolute; top: 50%; left: 10%; width: 80%; height: 4px; background: #e74c3c; transform: rotate(-45deg); border-radius: 2px; }
+
+        /* Results Table */
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
+        th { background-color: #27ae60; color: white; }
+
+        .btn { background: #27ae60; color: white; border: none; padding: 15px 40px; font-size: 1.1em; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .kbd { background: #eee; padding: 2px 6px; border-radius: 4px; border: 1px solid #ccc; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div id="start-screen" class="screen active-screen">
+        <h1>4-Dot Logic Test (5 Rounds)</h1>
+        <p>Complete 5 unique rounds as fast as possible. The game advances automatically.</p>
+        <div style="text-align: left; background: #fff3cd; padding: 20px; border-radius: 10px; display: inline-block; margin-bottom: 20px;">
+            <kbd class="kbd">➡️</kbd> Next | <kbd class="kbd">⬅️</kbd> Back | <kbd class="kbd">⬆️</kbd> <strong>Mark (4 dots)</strong> | <kbd class="kbd">⬇️</kbd> Erase
+        </div>
+        <br>
+        <button class="btn" onclick="startTest()">BEGIN CHALLENGE</button>
+    </div>
+
+    <div id="game-screen" class="screen">
+        <div class="stats-bar">
+            <span>Round: <span id="round-num">1</span>/5</span>
+            <span>Time: <span id="timer">0</span>s</span>
+            <span>Targets: <span id="progress">0</span> / <span id="total-targets">0</span></span>
+        </div>
+        <div id="grid" class="grid"></div>
+    </div>
+
+    <div id="results-screen" class="screen">
+        <h1>Challenge Complete!</h1>
+        <table id="results-table">
+            <thead>
+                <tr>
+                    <th>Round</th>
+                    <th>Time (Seconds)</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="results-body"></tbody>
+        </table>
+        <h2>Total Time: <span id="total-time-sum"></span>s</h2>
+        <button class="btn" onclick="location.reload()">RESTART ALL ROUNDS</button>
+    </div>
+</div>
+
+<script>
+    let currentRound = 1;
+    let totalRounds = 5;
+    let clusters = [];
+    let currentIndex = 0;
+    let roundStartTime;
+    let timerInterval;
+    let targetCount = 0;
+    let roundStats = [];
+
+    const dotPositions = [
+        {t:'10%', l:'10%'}, {t:'10%', l:'80%'}, {t:'80%', l:'10%'}, 
+        {t:'80%', l:'80%'}, {t:'45%', l:'45%'}, {t:'15%', l:'45%'}, {t:'45%', l:'80%'}
+    ];
+
+    function startTest() {
+        showScreen('game-screen');
+        loadRound();
+    }
+
+    function loadRound() {
+        document.getElementById('round-num').innerText = currentRound;
+        currentIndex = 0;
+        targetCount = 0;
+        clusters = [];
+        const grid = document.getElementById('grid');
+        grid.innerHTML = '';
+
+        // Generate 30 unique clusters per round
+        for(let i=0; i<30; i++) {
+            const count = Math.floor(Math.random() * 5) + 3; // 3, 4, 5, 6, 7
+            if(count === 4) targetCount++;
+            
+            const el = document.createElement('div');
+            el.className = 'cluster';
+            const dotBox = document.createElement('div');
+            dotBox.className = 'dot-box';
+            
+            let shuffledPos = [...dotPositions].sort(() => Math.random() - 0.5);
+            for(let d=0; d<count; d++) {
+                const dot = document.createElement('div');
+                dot.className = 'dot';
+                dot.style.top = shuffledPos[d].t;
+                dot.style.left = shuffledPos[d].l;
+                dotBox.appendChild(dot);
+            }
+            el.appendChild(dotBox);
+            grid.appendChild(el);
+            clusters.push({ element: el, count: count, isMarked: false });
+        }
+
+        document.getElementById('total-targets').innerText = targetCount;
+        updateUI();
+        startTimer();
+    }
+
+    function startTimer() {
+        let sec = 0;
+        document.getElementById('timer').innerText = 0;
+        roundStartTime = Date.now();
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            sec = Math.floor((Date.now() - roundStartTime) / 1000);
+            document.getElementById('timer').innerText = sec;
+        }, 1000);
+    }
+
+    function updateUI() {
+        clusters.forEach((c, i) => c.element.classList.toggle('active', i === currentIndex));
+        const correctMarks = clusters.filter(c => c.count === 4 && c.isMarked).length;
+        document.getElementById('progress').innerText = correctMarks;
+
+        // CHECK COMPLETION
+        const totalMarked = clusters.filter(c => c.isMarked).length;
+        if (correctMarks === targetCount && totalMarked === targetCount) {
+            endRound();
+        }
+    }
+
+    function endRound() {
+        clearInterval(timerInterval);
+        const timeTaken = document.getElementById('timer').innerText;
+        roundStats.push({ round: currentRound, time: timeTaken });
+
+        if (currentRound < totalRounds) {
+            currentRound++;
+            // Short delay for visual feedback before next round
+            setTimeout(loadRound, 300); 
+        } else {
+            showFinalResults();
+        }
+    }
+
+    function showFinalResults() {
+        showScreen('results-screen');
+        const body = document.getElementById('results-body');
+        let totalTime = 0;
+        body.innerHTML = '';
+
+        roundStats.forEach(stat => {
+            totalTime += parseInt(stat.time);
+            body.innerHTML += `<tr><td>Round ${stat.round}</td><td>${stat.time}s</td><td>✅ Pass</td></tr>`;
+        });
+        document.getElementById('total-time-sum').innerText = totalTime;
+    }
+
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
+        document.getElementById(id).classList.add('active-screen');
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (!document.getElementById('game-screen').classList.contains('active-screen')) return;
+        const current = clusters[currentIndex];
+
+        if (e.key === 'ArrowRight' && currentIndex < clusters.length - 1) currentIndex++;
+        else if (e.key === 'ArrowLeft' && currentIndex > 0) currentIndex--;
+        else if (e.key === 'ArrowUp') { current.isMarked = true; current.element.classList.add('marked'); }
+        else if (e.key === 'ArrowDown') { current.isMarked = false; current.element.classList.remove('marked'); }
+        
+        updateUI();
+    });
+</script>
+
+</body>
+</html>
