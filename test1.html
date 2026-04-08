@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Reaction Test Game</title>
+
+<style>
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  font-family: Arial;
+}
+
+#box {
+  width: 50vw;
+  height: 50vh;
+  max-width: 320px;
+  max-height: 320px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+table {
+  margin-top: 20px;
+  border-collapse: collapse;
+  width: 90%;
+  max-width: 800px;
+  display: none;
+}
+
+th, td {
+  padding: 10px;
+  border: 1px solid #ddd;
+  text-align: center;
+}
+
+th {
+  background: #333;
+  color: white;
+}
+
+tr:nth-child(even) {
+  background: #f9f9f9;
+}
+
+button {
+  margin-top: 15px;
+  padding: 10px 20px;
+  display: none;
+}
+</style>
+</head>
+
+<body>
+
+<div id="box"></div>
+
+<table id="table">
+<thead>
+<tr>
+  <th>#</th>
+  <th>Result</th>
+  <th>Selected</th>
+  <th>Actual</th>
+  <th>Time (ms)</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<button id="restart">Restart</button>
+
+<script>
+
+let lastColor = null;
+
+function randColor() {
+  let color = [
+    {n:"red", v:"red"},
+    {n:"green", v:"green"},
+    {n:"yellow", v:"yellow"},
+    {n:"blue", v:"blue"}
+  ];
+
+  let newColor;
+
+  do {
+    newColor = color[Math.floor(Math.random() * color.length)];
+  } while (lastColor && newColor.n === lastColor);
+
+  lastColor = newColor.n; // store last used color
+  return newColor;
+}
+
+let box = document.getElementById("box");
+let table = document.getElementById("table");
+let tbody = table.querySelector("tbody");
+let restart = document.getElementById("restart");
+
+let round = 0;
+let selected = null;
+let color = null;
+let startTime = 0;
+let holdTimer = null;
+let holding = false;
+let results = [];
+
+// function randColor() {
+//   let c = [
+//     {n:"red", v:"red"},
+//     {n:"green", v:"green"},
+//     {n:"yellow", v:"yellow"},
+//     {n:"blue", v:"blue"}
+//   ];
+//   return c[Math.floor(Math.random()*4)];
+// }
+
+function startRound() {
+  if (round >= 20) return endGame();
+
+  selected = null;
+  holding = false;
+  box.style.background = "white";
+
+  setTimeout(() => {
+    let c = randColor();
+    color = c.n;
+    box.style.background = c.v;
+    startTime = Date.now();
+  }, 800); // 1 second delay
+}
+
+function finishRound() {
+  let correct = color[0];
+  let result = "Wrong";
+  let time = "-";
+
+  if (selected === correct) {
+    result = "Correct";
+    time = Date.now() - startTime;
+  }
+
+  results.push({
+    result,
+    selected: selected ? selected.toUpperCase() : "-",
+    actual: correct.toUpperCase(),
+    time
+  });
+
+  round++;
+  startRound();
+}
+
+document.addEventListener("keydown", e => {
+  let k = e.key.toLowerCase();
+
+  if (["r","g","y","b"].includes(k) && !selected) {
+    selected = k;
+  }
+
+  if (k === "l" && selected && !holding) {
+    holding = true;
+
+    holdTimer = setTimeout(() => {
+      finishRound();
+    }, 1000); // max 3 sec hold
+  }
+});
+
+document.addEventListener("keyup", e => {
+  if (e.key.toLowerCase() === "l" && holding) {
+    clearTimeout(holdTimer);
+    finishRound();
+  }
+});
+
+function endGame() {
+  table.style.display = "table";
+  restart.style.display = "block";
+
+  tbody.innerHTML = "";
+
+  results.forEach((r,i) => {
+    let row = `
+    <tr>
+      <td>${i+1}</td>
+      <td>${r.result}</td>
+      <td>${r.selected}</td>
+      <td>${r.actual}</td>
+      <td>${r.time}</td>
+    </tr>`;
+    tbody.innerHTML += row;
+  });
+}
+
+restart.onclick = () => {
+  round = 0;
+  results = [];
+  table.style.display = "none";
+  restart.style.display = "none";
+  startRound();
+};
+
+startRound();
+</script>
+
+</body>
+</html>
