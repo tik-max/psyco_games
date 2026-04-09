@@ -16,6 +16,20 @@ body {
   font-family: Arial;
 }
 
+/* Instruction Screen */
+#intro {
+  text-align: center;
+  max-width: 600px;
+}
+
+#startBtn {
+  margin-top: 20px;
+  padding: 12px 25px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* Game Box */
 #box {
   width: 50vw;
   height: 50vh;
@@ -24,6 +38,7 @@ body {
   background: white;
   border-radius: 10px;
   box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  display: none;
 }
 
 table {
@@ -52,12 +67,28 @@ tr:nth-child(even) {
 button {
   margin-top: 15px;
   padding: 10px 20px;
+}
+
+#restart {
   display: none;
 }
 </style>
 </head>
 
 <body>
+
+<!-- Instruction Screen -->
+<div id="intro">
+  <h1>Reaction Test Game</h1>
+  <p>
+    🔴 R | 🟢 G | 🟡 Y | 🔵 B<br><br>
+    Press the correct key quickly.<br>
+    If you don't react fast, color will change automatically.<br><br>
+    After selecting, hold <b>L for 2 seconds</b> to confirm.<br><br>
+    No repeated colors. Stay sharp!
+  </p>
+  <button id="startBtn">Start Game</button>
+</div>
 
 <div id="box"></div>
 
@@ -77,11 +108,26 @@ button {
 <button id="restart">Restart</button>
 
 <script>
+let box = document.getElementById("box");
+let table = document.getElementById("table");
+let tbody = table.querySelector("tbody");
+let restart = document.getElementById("restart");
+let intro = document.getElementById("intro");
+let startBtn = document.getElementById("startBtn");
 
+let round = 0;
+let selected = null;
+let color = null;
+let startTime = 0;
+let holdTimer = null;
+let responseTimer = null;
+let holding = false;
+let results = [];
 let lastColor = null;
 
+/* No repeat color */
 function randColor() {
-  let color = [
+  let colors = [
     {n:"red", v:"red"},
     {n:"green", v:"green"},
     {n:"yellow", v:"yellow"},
@@ -89,53 +135,39 @@ function randColor() {
   ];
 
   let newColor;
-
   do {
-    newColor = color[Math.floor(Math.random() * color.length)];
+    newColor = colors[Math.floor(Math.random()*colors.length)];
   } while (lastColor && newColor.n === lastColor);
 
-  lastColor = newColor.n; // store last used color
+  lastColor = newColor.n;
   return newColor;
 }
 
-let box = document.getElementById("box");
-let table = document.getElementById("table");
-let tbody = table.querySelector("tbody");
-let restart = document.getElementById("restart");
-
-let round = 0;
-let selected = null;
-let color = null;
-let startTime = 0;
-let holdTimer = null;
-let holding = false;
-let results = [];
-
-// function randColor() {
-//   let c = [
-//     {n:"red", v:"red"},
-//     {n:"green", v:"green"},
-//     {n:"yellow", v:"yellow"},
-//     {n:"blue", v:"blue"}
-//   ];
-//   return c[Math.floor(Math.random()*4)];
-// }
-
-function startRound() {
-  if (round >= 20) return endGame();
+/* Show color + start reaction timer */
+function showColor() {
+  let c = randColor();
+  color = c.n;
+  box.style.background = c.v;
+  startTime = Date.now();
 
   selected = null;
   holding = false;
-  box.style.background = "white";
 
-  setTimeout(() => {
-    let c = randColor();
-    color = c.n;
-    box.style.background = c.v;
-    startTime = Date.now();
-  }, 800); // 1 second delay
+  clearTimeout(responseTimer);
+
+  responseTimer = setTimeout(() => {
+    // ❌ No response → next color
+    showColor();
+  }, 1000); // adjust difficulty here
 }
 
+/* Start game */
+function startRound() {
+  if (round >= 15) return endGame();
+  showColor();
+}
+
+/* Finish round */
 function finishRound() {
   let correct = color[0];
   let result = "Wrong";
@@ -154,35 +186,39 @@ function finishRound() {
   });
 
   round++;
-  startRound();
+
+  if (round >= 15) {
+    endGame();
+  } else {
+    showColor(); // next color after hold completes
+  }
 }
 
+/* Key controls */
 document.addEventListener("keydown", e => {
   let k = e.key.toLowerCase();
 
+  // Select color
   if (["r","g","y","b"].includes(k) && !selected) {
     selected = k;
+    clearTimeout(responseTimer); // stop auto skip
   }
 
+  // Hold L
   if (k === "l" && selected && !holding) {
     holding = true;
 
     holdTimer = setTimeout(() => {
       finishRound();
-    }, 1000); // max 3 sec hold
+    }, 2000);
   }
 });
 
-document.addEventListener("keyup", e => {
-  if (e.key.toLowerCase() === "l" && holding) {
-    clearTimeout(holdTimer);
-    finishRound();
-  }
-});
-
+/* End game */
 function endGame() {
   table.style.display = "table";
   restart.style.display = "block";
+  box.style.display = "none";
 
   tbody.innerHTML = "";
 
@@ -199,15 +235,23 @@ function endGame() {
   });
 }
 
+/* Restart */
 restart.onclick = () => {
   round = 0;
   results = [];
+  lastColor = null;
   table.style.display = "none";
   restart.style.display = "none";
+  box.style.display = "block";
   startRound();
 };
 
-startRound();
+/* Start button */
+startBtn.onclick = () => {
+  intro.style.display = "none";
+  box.style.display = "block";
+  startRound();
+};
 </script>
 
 </body>
